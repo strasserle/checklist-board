@@ -141,6 +141,9 @@ textarea { width: 100%; resize: vertical; min-height: 58px; }
 .msg { background: var(--soft); border-radius: 8px; padding: 6px 10px; font-size: 0.88rem; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; cursor: text; }
 .msg.claude { background: var(--accent-soft); }
 .msg .meta { margin: 0 0 2px; }
+.msg.thinking { background: var(--accent-soft); color: var(--muted, inherit); font-style: italic; display: flex; align-items: center; gap: 8px; }
+.dots span { display: inline-block; width: 6px; height: 6px; margin-right: 3px; border-radius: 50%; background: currentColor; opacity: .35; }
+@media (prefers-reduced-motion: no-preference) { .dots span { animation: think 1.2s infinite ease-in-out; } .dots span:nth-child(2) { animation-delay: .2s; } .dots span:nth-child(3) { animation-delay: .4s; } @keyframes think { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } } }
 .ask .controls { align-items: center; }
 /* lists below the board */
 section.lower { margin-top: 30px; }
@@ -383,8 +386,16 @@ details.done-log[open] > summary::before { content: "▾ "; }
       hist.appendChild(h("div", { class: "msg " + (m.from === "Claude" ? "claude" : "me") },
         h("div", { class: "meta", text: (m.from || "?") + (m.at ? " · " + ago(m.at) : "") }), h("div", { text: m.text || "" })));
     });
-    var box = h("div", { class: "ask" }, Object.keys(th).length ? hist : null, ta, h("div", { class: "controls" }, msg)); // no button: Enter sends (btn stays detached and only gates sending)
-    if (Object.keys(th).length) setTimeout(function () { hist.scrollTop = hist.scrollHeight; }, 0);
+    // "Claude is thinking": the last message is mine, not older than 10 min, and Claude has not answered yet.
+    var keys = Object.keys(th).sort(), last = keys.length ? th[keys[keys.length - 1]] : null, THINK_MS = 10 * 60 * 1000;
+    var age = last && last.at ? Date.now() - new Date(last.at).getTime() : Infinity;
+    if (last && last.from !== "Claude" && age < THINK_MS) {
+      var think = h("div", { class: "msg thinking", role: "status" }, h("span", { class: "dots" }, h("span"), h("span"), h("span")), h("span", { text: "Claude is thinking…" }));
+      hist.appendChild(think);
+      setTimeout(function () { if (think.parentNode) think.remove(); }, THINK_MS - age);
+    }
+    var box = h("div", { class: "ask" }, (Object.keys(th).length || hist.childNodes.length) ? hist : null, ta, h("div", { class: "controls" }, msg)); // no button: Enter sends (btn stays detached and only gates sending)
+    if (hist.childNodes.length) setTimeout(function () { hist.scrollTop = hist.scrollHeight; }, 0);
     getComments().then(function (c) {
       if (!c || !c.canSendToClaude) { box.hidden = true; return; }
       c.canSendToClaude().then(function (s) {
