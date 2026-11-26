@@ -137,6 +137,7 @@ textarea { width: 100%; resize: vertical; min-height: 58px; }
 .ask { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--surface); }
 .ask textarea { min-height: 44px; }
 .detail textarea[id^="nt-"] { font-size: 0.82rem; min-height: 40px; padding: 6px 8px; }
+.hist[hidden] { display: none; }
 .hist { display: grid; gap: 6px; max-height: 240px; overflow-y: auto; align-content: start; }
 .msg { background: var(--soft); border-radius: 8px; padding: 6px 10px; font-size: 0.88rem; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; cursor: text; }
 .msg.claude { background: var(--accent-soft); }
@@ -231,7 +232,7 @@ details.done-log[open] > summary::before { content: "▾ "; }
   var ME = "Me"; // the human owner of this board; Claude writes through the data tool and signs as Claude
 
   var tasks = [], expanded = {}, filter = { area: "all" };
-  var col = null, loaded = false, writeChain = {}, dragId = null;
+  var drafts = {}, pending = {}, col = null, loaded = false, writeChain = {}, dragId = null;
   var $ = function (id) { return document.getElementById(id); };
 
   function h(tag, attrs) {
@@ -383,8 +384,9 @@ details.done-log[open] > summary::before { content: "▾ "; }
     AREAS.forEach(function (a) { areaSel.appendChild(h("option", { value: a.id, text: a.name })); });
     areaSel.value = t.area;
     var note = h("textarea", { id: "nt-" + t.id, "aria-label": "Notes", placeholder: "Notes for yourself (saved when you leave the box). Messages to Claude go in the box below." });
-    note.value = t.note || "";
-    note.addEventListener("blur", function () { if (note.value !== (t.note || "")) save(t.id, { note: note.value }); });
+    note.value = drafts[note.id] != null ? drafts[note.id] : (t.note || "");
+    note.addEventListener("input", function () { drafts[note.id] = note.value; });
+    note.addEventListener("blur", function () { var v = note.value; if (v !== (t.note || "")) save(t.id, { note: v }).then(function () { if (drafts[note.id] === v) delete drafts[note.id]; }); else delete drafts[note.id]; });
     var chatIn = h("input", { type: "text", id: "ch-" + t.id, "aria-label": "Claude chat that owns this row", placeholder: "chat id", size: "14", style: "font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px" });
     chatIn.value = t.chat || "";
     chatIn.addEventListener("blur", function () { if (chatIn.value.trim() !== (t.chat || "")) save(t.id, { chat: chatIn.value.trim() }); });
@@ -405,46 +407,61 @@ details.done-log[open] > summary::before { content: "▾ "; }
     return commentsP;
   }
   function askBlock(t) {
-    var ta = h("textarea", { id: "ask-" + t.id, "aria-label": "Message to Claude", placeholder: "Message to Claude about this row. Enter sends, Shift+Enter makes a new line." });
-    var btn = h("button", { class: "btn", type: "button", text: "Send to Claude", disabled: true });
-    var msg = h("span", { class: "meta" });
+    var THINK_MS = 10 * 60 * 1000, th = t.thread || {};
+    var ta = h("textarea", { id: "ask-" + t.id, rows: "1", "aria-label": "Message to Claude", placeholder: "Message to Claude about this row. Enter sends, Shift+Enter makes a new line." });
+    ta.value = drafts[ta.id] || "";
+    var autosize = function () { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 2, 160) + "px"; };
+    ta.addEventListener("input", function () { drafts[ta.id] = ta.value; autosize(); });
+    var msg = h("span", { class: "meta", role: "status" });
     var hist = h("div", { class: "hist" });
-    var th = t.thread || {};
-    Object.keys(th).sort().forEach(function (k) {
-      var m = th[k] || {};
-      hist.appendChild(h("div", { class: "msg " + (m.from === "Claude" ? "claude" : "me") },
-        h("div", { class: "meta", text: (m.from || "?") + (m.at ? " · " + ago(m.at) : "") }), h("div", { text: m.text || "" })));
-    });
-    // "Claude is thinking": the last message is mine, not older than 10 min, and Claude has not answered yet.
-    var keys = Object.keys(th).sort(), last = keys.length ? th[keys[keys.length - 1]] : null, THINK_MS = 10 * 60 * 1000;
-    var age = last && last.at ? Date.now() - new Date(last.at).getTime() : Infinity;
-    if (last && last.from !== "Claude" && age < THINK_MS) {
-      var think = h("div", { class: "msg thinking", role: "status" }, h("span", { class: "dots" }, h("span"), h("span"), h("span")), h("span", { text: "Claude is thinking…" }));
-      hist.appendChild(think);
-      setTimeout(function () { if (think.parentNode) think.remove(); }, THINK_MS - age);
-    }
-    var box = h("div", { class: "ask" }, (Object.keys(th).length || hist.childNodes.length) ? hist : null, ta, h("div", { class: "controls" }, msg)); // no button: Enter sends (btn stays detached and only gates sending)
-    if (hist.childNodes.length) setTimeout(function () { hist.scrollTop = hist.scrollHeight; }, 0);
+    var bubble = function (m, sending) {
+      return h("div", { class: "msg " + (m.from === "Claude" ? "claude" : "me") },
+        h("div", { class: "meta", text: (m.from || "?") + (sending ? " · sending…" : (m.at ? " · " + ago(m.at) : "")) }), h("div", { text: m.text || "" }));
+    };
+    // history = saved thread + my message that is still being sent; thinking = my message is the latest and Claude has not answered
+    var paint = function () {
+      hist.textContent = "";
+      var keys = Object.keys(th).sort(), last = null;
+      keys.forEach(function (k) { var m = th[k] || {}; last = m; hist.appendChild(bubble(m, false)); });
+      var pd = pending[t.id], waiting = false;
+      if (pd) { hist.appendChild(bubble(pd, !pd.saved)); waiting = true; }
+      else if (last && last.from !== "Claude" && last.at && Date.now() - new Date(last.at).getTime() < THINK_MS) waiting = true;
+      if (waiting) {
+        var think = h("div", { class: "msg thinking", role: "status" }, h("span", { class: "dots" }, h("span"), h("span"), h("span")), h("span", { text: "Claude is thinking…" }));
+        hist.appendChild(think);
+        if (!pd) setTimeout(function () { if (think.parentNode) think.remove(); hist.hidden = !hist.childNodes.length; }, THINK_MS - (Date.now() - new Date(last.at).getTime()));
+      }
+      hist.hidden = !hist.childNodes.length;
+      hist.scrollTop = hist.scrollHeight;
+    };
+    paint();
+    var box = h("div", { class: "ask" }, hist, ta, h("div", { class: "controls" }, msg));
+    setTimeout(function () { hist.scrollTop = hist.scrollHeight; autosize(); }, 0);
     getComments().then(function (c) {
       if (!c || !c.canSendToClaude) { box.hidden = true; return; }
+      var ready = false;
       c.canSendToClaude().then(function (s) {
         if (s !== "available") { msg.textContent = s === "no_session" ? "No Claude session is listening right now." : "Sending to Claude is not available in this view."; return; }
-        btn.disabled = false;
+        ready = true;
       }, function () { msg.textContent = "Sending to Claude is not available in this view."; });
       var send = function () {
         var text = ta.value.trim();
-        if (!text || btn.disabled) return;
-        btn.disabled = true; msg.textContent = "Sending…";
+        if (!text || !ready || pending[t.id]) return;
+        var now = new Date().toISOString(), pd = pending[t.id] = { from: ME, at: now, text: text, saved: false };
+        ta.value = ""; delete drafts[ta.id]; autosize(); msg.textContent = ""; paint();
         c.anchorFor(box).then(function (anchor) {
           return c.sendToClaude({ anchor: anchor, text: "[board row " + t.id + ": " + (t.title || "") + "] [for chat: " + (t.chat ? String(t.chat).split(" ")[0] : "any") + "] " + text });
         }).then(function () {
-          var now = new Date().toISOString(), p = {}; p[now + "-me"] = { from: ME, at: now, text: text };
-          save(t.id, { thread: p });
-          ta.value = ""; msg.textContent = "Sent. Claude answers in the comment thread and in the history above.";
-        },
-          function (e) { msg.textContent = "Not sent: " + ((e && (e.message || e.code)) || "try again"); }).then(function () { btn.disabled = false; });
+          pd.saved = true; paint();
+          var p = {}; p[now + "-me"] = { from: ME, at: now, text: text };
+          return save(t.id, { thread: p });
+        }, function (e) {
+          delete pending[t.id];
+          if (!ta.value) { ta.value = text; drafts[ta.id] = text; autosize(); }
+          paint(); msg.textContent = "Not sent: " + ((e && (e.message || e.code)) || "try again") + ". Your text is back in the box.";
+          return "failed";
+        }).then(function (r) { if (r !== "failed" && pending[t.id] === pd) { delete pending[t.id]; if (document.body.contains(box)) paint(); } });
       };
-      btn.addEventListener("click", send);
       ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
     });
     return box;
@@ -630,9 +647,9 @@ details.done-log[open] > summary::before { content: "▾ "; }
     col.onSnapshot(function (snap) {
       clearTimeout(slow); loaded = true;
       tasks = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-      var a = document.activeElement;
-      if (a && a.tagName === "TEXTAREA") return; // do not replace a notes box someone is typing in
-      render();
+      var a = document.activeElement, keep = a && a.tagName === "TEXTAREA" && a.id ? { id: a.id, s: a.selectionStart, e: a.selectionEnd } : null;
+      render(); // drafts live in `drafts`, so typing survives; put the caret back
+      if (keep) { var n = document.getElementById(keep.id); if (n) { n.focus({ preventScroll: true }); try { n.setSelectionRange(keep.s, keep.e); } catch (e) {} } }
     }, function (err) {
       clearTimeout(slow); loaded = true; render();
       toast(err && err.code === "revoked" ? "Access to the list changed." : "The list stopped updating. Reload the page.");
