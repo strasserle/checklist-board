@@ -30,13 +30,13 @@ page = "<!doctype html><html><head><meta charset=utf8><meta name=viewport conten
 open(os.path.join(OUT, "_demo.html"), "w", encoding="utf8").write(page)
 with sync_playwright() as p:
     b = p.chromium.launch()
-    for theme in ["light", "dark", "cute"]:
+    for theme in ["light", "dark", "cute", "maritime"]:
         ctx = b.new_context(viewport={"width": 1100, "height": 900}, device_scale_factor=2)
         pg = ctx.new_page()
         errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.goto("file:///" + os.path.join(OUT, "_demo.html"))
-        [pg.click("#themeBtn") for _ in range({"light":0,"dark":1,"cute":2}[theme])]
+        [pg.click("#themeBtn") for _ in range({"light":0,"dark":1,"cute":2,"maritime":3}[theme])]
         pg.wait_for_timeout(1500)
         pg.screenshot(path=os.path.join(OUT, f"{theme}.png"), full_page=True)
         print(theme, "errors:", errs)
