@@ -1,25 +1,24 @@
 # Checklist board for working with Claude
 
-A small shared to-do board for a human and Claude. Claude builds, you check.
-It is a single HTML page that runs as a **claude.ai Artifact** with the `db` and `comments` capabilities.
-This repo contains the page only; there are no tasks in it. Your tasks live in the
-artifact's own database, not in git.
-
-## Screenshots
-
-Demo rows, not real tasks. Three themes, switched with the Theme button.
-
 | Light | Dark | Cute |
 | --- | --- | --- |
 | ![Light theme](docs/screenshots/light.png) | ![Dark theme](docs/screenshots/dark.png) | ![Cute theme](docs/screenshots/cute.png) |
 
+A small shared to-do board for a human and Claude. Claude builds, you check.
+It is a single HTML page that runs as a **claude.ai Artifact** with the `db` and `comments` capabilities.
+
+
 ## Set up
 
-1. In Claude (claude.ai or Claude Code), ask: *"Publish `index.html` from this repo as an
+1. Clone the repo or download index.html:
+   ```bash
+   git clone https://github.com/strasserle/checklist-board.git && cd checklist-board
+   ```
+2. In Claude (claude.ai or Claude Code), ask: *"Publish `index.html` from this repo as an
    artifact with the `db` and `comments` capabilities."* The page reads and writes the
    collection `tasks`; `comments` powers the "Send to Claude" box (without it that box is hidden).
-2. Open the artifact link. The board starts empty; add the first item in the form at the top.
-3. Optional: add the snippet below to your `CLAUDE.md` so Claude keeps the board in sync.
+3. Open the artifact link. The board starts empty; add the first item in the form at the top.
+4. Optional: add the snippet below to your `CLAUDE.md` so Claude keeps the board in sync.
 
 ## How it works
 
@@ -71,3 +70,7 @@ read and write it with the `ArtifactData` tool).
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Contribute
+
+Pull requests with custom themes or new features are welcome ;)
