@@ -134,6 +134,12 @@ textarea { width: 100%; resize: vertical; min-height: 58px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 .controls label { font-size: 0.78rem; color: var(--muted); display: grid; gap: 3px; }
 
+.ask { display: grid; gap: 6px; }
+.hist { display: grid; gap: 6px; max-height: 240px; overflow-y: auto; align-content: start; }
+.msg { background: var(--soft); border-radius: 8px; padding: 6px 10px; font-size: 0.88rem; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; cursor: text; }
+.msg.claude { background: var(--accent-soft); }
+.msg .meta { margin: 0 0 2px; }
+.ask .controls { align-items: center; }
 /* lists below the board */
 section.lower { margin-top: 30px; }
 .lower-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
@@ -343,28 +349,70 @@ details.done-log[open] > summary::before { content: "▾ "; }
     var areaSel = h("select", { id: "ar-" + t.id, "aria-label": "Area", onchange: function (e) { save(t.id, { area: e.target.value }); } });
     AREAS.forEach(function (a) { areaSel.appendChild(h("option", { value: a.id, text: a.name })); });
     areaSel.value = t.area;
-    var note = h("textarea", { id: "nt-" + t.id, "aria-label": "Notes", placeholder: "Notes for the other side (saved when you leave the box)" });
+    var note = h("textarea", { id: "nt-" + t.id, "aria-label": "Notes", placeholder: "Notes for yourself (saved when you leave the box). Messages to Claude go in the box below." });
     note.value = t.note || "";
     note.addEventListener("blur", function () { if (note.value !== (t.note || "")) save(t.id, { note: note.value }); });
+    var chatIn = h("input", { type: "text", id: "ch-" + t.id, "aria-label": "Claude chat that owns this row", placeholder: "chat id", size: "14", style: "font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px" });
+    chatIn.value = t.chat || "";
+    chatIn.addEventListener("blur", function () { if (chatIn.value.trim() !== (t.chat || "")) save(t.id, { chat: chatIn.value.trim() }); });
     var del = h("button", { class: "btn ghost danger", type: "button", style: "margin-left:auto", text: "Delete", onclick: function () {
       if (del.dataset.arm === "1") removeTask(t.id); else { del.dataset.arm = "1"; del.textContent = "Click again to delete"; }
     } });
     return h("div", { class: "detail" },
       t.detail ? h("p", { text: t.detail }) : null,
-      h("div", { class: "controls" }, h("label", null, "Status", statusSel), h("label", null, "Owner", whoSel), h("label", null, "Area", areaSel),
-        h("button", { class: "btn ghost", type: "button", text: "Copy text", onclick: function () {
-          var txt = (t.title || "") + "\n\n" + (t.detail || "") + (t.note ? "\n\nNotes:\n" + t.note : "");
-          var fallback = function () { var ta = document.createElement("textarea"); ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand("copy"); } catch (x) {} document.body.removeChild(ta); toast(ok ? "Copied" : "Select the text and copy it with Ctrl+C"); };
-          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { toast("Copied"); }, fallback); else fallback();
-        } }),
+      h("div", { class: "controls" }, h("label", null, "Status", statusSel), h("label", null, "Owner", whoSel), h("label", null, "Area", areaSel), h("label", null, "Chat (id)", chatIn),
         del),
-      note);
+      note, askBlock(t));
+  }
+  // Message to Claude on one row: posts a comment anchored to the row and sends it to the Claude session (comments capability, editors only).
+  var commentsP = null;
+  function getComments() {
+    if (!commentsP) commentsP = (window.claude && window.claude.use ? window.claude.use("comments") : Promise.resolve(null)).catch(function () { return null; });
+    return commentsP;
+  }
+  function askBlock(t) {
+    var ta = h("textarea", { id: "ask-" + t.id, "aria-label": "Message to Claude", placeholder: "Message to Claude about this row. Enter sends, Shift+Enter makes a new line." });
+    var btn = h("button", { class: "btn", type: "button", text: "Send to Claude", disabled: true });
+    var msg = h("span", { class: "meta" });
+    var hist = h("div", { class: "hist" });
+    var th = t.thread || {};
+    Object.keys(th).sort().forEach(function (k) {
+      var m = th[k] || {};
+      hist.appendChild(h("div", { class: "msg " + (m.from === "Claude" ? "claude" : "me") },
+        h("div", { class: "meta", text: (m.from || "?") + (m.at ? " · " + ago(m.at) : "") }), h("div", { text: m.text || "" })));
+    });
+    var box = h("div", { class: "ask" }, Object.keys(th).length ? hist : null, ta, h("div", { class: "controls" }, btn, msg));
+    if (Object.keys(th).length) setTimeout(function () { hist.scrollTop = hist.scrollHeight; }, 0);
+    getComments().then(function (c) {
+      if (!c || !c.canSendToClaude) { box.hidden = true; return; }
+      c.canSendToClaude().then(function (s) {
+        if (s !== "available") { msg.textContent = s === "no_session" ? "No Claude session is listening right now." : "Sending to Claude is not available in this view."; return; }
+        btn.disabled = false;
+      }, function () { msg.textContent = "Sending to Claude is not available in this view."; });
+      var send = function () {
+        var text = ta.value.trim();
+        if (!text || btn.disabled) return;
+        btn.disabled = true; msg.textContent = "Sending…";
+        c.anchorFor(box).then(function (anchor) {
+          return c.sendToClaude({ anchor: anchor, text: "[board row " + t.id + ": " + (t.title || "") + "] [for chat: " + (t.chat ? String(t.chat).split(" ")[0] : "any") + "] " + text });
+        }).then(function () {
+          var now = new Date().toISOString(), p = {}; p[now + "-me"] = { from: ME, at: now, text: text };
+          save(t.id, { thread: p });
+          ta.value = ""; msg.textContent = "Sent. Claude answers in the comment thread and in the history above.";
+        },
+          function (e) { msg.textContent = "Not sent: " + ((e && (e.message || e.code)) || "try again"); }).then(function () { btn.disabled = false; });
+      };
+      btn.addEventListener("click", send);
+      ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
+    });
+    return box;
   }
   function titleBlock(t, extraMeta) {
-    var meta = (t.updatedBy ? "Updated by " + t.updatedBy + " " + ago(t.updatedAt) : "");
+    var num = "#" + (String(t.id).length > 8 ? String(t.id).slice(0, 6) : t.id);
+    var meta = num + (t.chat ? " · chat " + t.chat : "") + (t.updatedBy ? " · Updated by " + t.updatedBy + " " + ago(t.updatedAt) : "");
     return h("button", { class: "title-btn", type: "button", "aria-expanded": String(!!expanded[t.id]), onclick: function () { expanded[t.id] = !expanded[t.id]; render(); } },
       h("div", { class: "title", text: t.title || "(untitled)" }),
-      meta ? h("div", { class: "meta", text: meta }) : null);
+      h("div", { class: "meta", text: meta }));
   }
 
   // Put a card into a column at a position (before the card `beforeId`, or at the end) and write the order for

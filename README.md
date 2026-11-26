@@ -1,7 +1,7 @@
 # Checklist board for working with Claude
 
 A small shared to-do board for a human and Claude. Claude builds, you check.
-It is a single HTML page that runs as a **claude.ai Artifact** with the `db` capability.
+It is a single HTML page that runs as a **claude.ai Artifact** with the `db` and `comments` capabilities.
 This repo contains the page only; there are no tasks in it. Your tasks live in the
 artifact's own database, not in git.
 
@@ -16,7 +16,8 @@ Demo rows, not real tasks. Three themes, switched with the Theme button.
 ## Set up
 
 1. In Claude (claude.ai or Claude Code), ask: *"Publish `index.html` from this repo as an
-   artifact with the `db` capability."* The page reads and writes the collection `tasks`.
+   artifact with the `db` and `comments` capabilities."* The page reads and writes the
+   collection `tasks`; `comments` powers the "Send to Claude" box (without it that box is hidden).
 2. Open the artifact link. The board starts empty; add the first item in the form at the top.
 3. Optional: add the snippet below to your `CLAUDE.md` so Claude keeps the board in sync.
 
@@ -31,13 +32,18 @@ One document per row in the collection `tasks`:
 | `who` | whose move it is: `Claude`, `Me` |
 | `area` | one of the areas defined at the top of the script (edit `AREAS`) |
 | `detail` | Claude's answers and results |
-| `note` | your comments for Claude (an instruction or a question) |
+| `note` | your own notes on the row |
+| `thread` | the message history with Claude: a map of `{from, at, text}` entries keyed by timestamp |
+| `chat` | optional id of the Claude chat that owns the row, so messages go to the right session |
 | `rank` | order within a column (top = first) |
 | `createdAt`, `updatedAt`, `updatedBy` | set by the page |
 
 Workflow: Claude takes a `todo` row, sets it `doing`, and when finished sets `test` with
 `who` = `Me` and writes in `detail` what was done and how it was checked. You press **Works**
-(`done`) or **Not yet** (back to Claude, with a note). Only you move a row to `done`.
+(`done`) or **Not yet** (back to Claude; say what is wrong in the row's message box). Only you move a row to `done`.
+
+To talk to Claude about one row, open the card and use **Send to Claude**. The message goes to a
+running Claude session that is watching the artifact, and the history stays on the row.
 
 ## Snippet for your CLAUDE.md
 
@@ -45,7 +51,10 @@ Workflow: Claude takes a `todo` row, sets it `doing`, and when finished sets `te
 ## Checklist board
 My to-do list is a claude.ai artifact: <your artifact URL> (db collection `tasks`,
 read and write it with the `ArtifactData` tool).
-- Read my `note` on a row as an instruction or question and answer it in `detail`.
+- Messages I send from a row's "Send to Claude" box reach you as a comment starting with
+  `[board row <id>: <title>]`. Answer in the comment thread and also append the answer to the
+  row's `thread` map as `{from: "Claude", at: <ISO time>, text}` under a new timestamp key.
+- Put results in `detail`; my `note` is only my own notes.
 - Create a row for every new task I name before starting it (status `doing`, `who` "Claude").
 - When finished, set status `test` and `who` "Me"; say in `detail` what was done and how it
   was verified. Only I move a row to `done`.
