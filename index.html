@@ -1,0 +1,593 @@
+<title>Checklist Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap">
+<style>
+/* Layout: a board with three columns (Claude builds | you check | later), then your own tasks and the done log as plain lists below. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --ink: #15213a;
+  --muted: #596579;
+  --line: #dde3ec;
+  --soft: #eef1f6;
+  --accent: #e08a00;
+  --accent-soft: #fff2d9;
+  --todo: #64748b;
+  --doing: #2563eb;
+  --test: #7c3aed;
+  --blocked: #dc2626;
+  --done: #15803d;
+  --font-head: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1624; --surface: #172033; --ink: #e8edf6; --muted: #9aa7bd; --line: #2a364c; --soft: #1e2a40;
+    --accent: #f5a524; --accent-soft: #3a2b0d; --todo: #94a3b8; --doing: #60a5fa; --test: #a78bfa; --blocked: #f87171; --done: #4ade80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1624; --surface: #172033; --ink: #e8edf6; --muted: #9aa7bd; --line: #2a364c; --soft: #1e2a40;
+  --accent: #f5a524; --accent-soft: #3a2b0d; --todo: #94a3b8; --doing: #60a5fa; --test: #a78bfa; --blocked: #f87171; --done: #4ade80;
+  color-scheme: dark;
+}
+:root { --face: #ffe9a8; --cheek: #ff9eb5; }
+/* third theme: cute (pink and purple) */
+:root[data-theme="cute"] {
+  color-scheme: light;
+  --bg: #fdeefa; --surface: #fffafd; --ink: #4b2a66; --muted: #8c6bab; --line: #f2cde9; --soft: #f9e0f3;
+  --accent: #ec6fb2; --accent-soft: #ffe1f2; --todo: #9b8bcc; --doing: #a45bd8; --test: #ee6fb0; --blocked: #e0526f; --done: #4fb99a;
+  --face: #ffd3ec; --cheek: #ff86c0;
+  --font-head: "Quicksand", "Space Grotesk", "Helvetica Neue", Arial, sans-serif; --font-body: "Quicksand", "Inter", system-ui, sans-serif;
+}
+:root[data-theme="cute"] body { background-image: radial-gradient(circle at 12px 12px, rgba(236,111,178,0.14) 2px, transparent 2.6px), radial-gradient(circle at 36px 36px, rgba(164,91,216,0.11) 2px, transparent 2.6px); background-size: 48px 48px; }
+:root[data-theme="cute"] .h1t { background: linear-gradient(90deg, #ec6fb2, #a45bd8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+:root[data-theme="cute"] .card { border-radius: 18px; box-shadow: 0 6px 16px rgba(164,91,216,0.13); }
+:root[data-theme="cute"] .col { border-radius: 24px; }
+:root[data-theme="cute"] .list, :root[data-theme="cute"] .add { border-radius: 18px; }
+:root[data-theme="cute"] .btn { color: #fff; border-radius: 99px; background: linear-gradient(90deg, #ec6fb2, #a45bd8); }
+:root[data-theme="cute"] .btn.ghost { background: transparent; color: var(--muted); }
+:root[data-theme="cute"] .mini { border-radius: 99px; }
+:root[data-theme="cute"] .chip[aria-pressed="true"] { background: linear-gradient(90deg, #ec6fb2, #a45bd8); border-color: transparent; color: #fff; }
+:root[data-theme="cute"] .area-tag { background: #f3dcf6; color: #8c4fb0; }
+.mascot { width: 46px; height: 46px; flex: none; }
+h1 { display: flex; align-items: center; gap: 10px; }
+@media (prefers-reduced-motion: no-preference) { :root[data-theme="cute"] .mascot { animation: bob 2.6s ease-in-out infinite; } @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } } }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.45; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.9rem; letter-spacing: -0.01em; }
+.sub { color: var(--muted); margin: 4px 0 0; max-width: 60ch; }
+.head { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: flex-end; justify-content: space-between; }
+.progress { min-width: 220px; flex: 1 1 220px; max-width: 320px; }
+.progress .bar { height: 8px; background: var(--soft); border-radius: 99px; overflow: hidden; display: flex; }
+.progress .bar i { display: block; height: 100%; }
+.progress .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.78rem; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+
+.bar-sticky { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 14px 10px; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 0.82rem; border: 1px solid var(--line); background: var(--surface); color: var(--muted); padding: 5px 11px; border-radius: 99px; cursor: pointer; }
+.chip:hover { border-color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip .n { opacity: 0.7; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.theme { margin-left: auto; }
+
+.add { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; margin-top: 6px; }
+.add input[type=text], select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+textarea { width: 100%; resize: vertical; min-height: 58px; }
+.btn { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 8px 14px; background: var(--accent); color: #1b1200; cursor: pointer; }
+.btn:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 500; }
+.btn.danger { color: var(--blocked); }
+:focus-visible { outline: 2px solid var(--doing); outline-offset: 2px; }
+@media (max-width: 640px) { .add { grid-template-columns: 1fr 1fr; } .add input[type=text] { grid-column: 1 / -1; } .add .btn { grid-column: 1 / -1; } }
+
+/* board */
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; margin-top: 18px; align-items: start; }
+@media (max-width: 760px) { .board { grid-template-columns: 1fr; } }
+.col { background: var(--soft); border-radius: 14px; padding: 10px; min-width: 0; min-height: 140px; border: 2px solid transparent; }
+.col.over { border-color: var(--doing); }
+.col-check.over { border-color: var(--accent); }
+.col-head { display: flex; align-items: baseline; gap: 8px; padding: 4px 6px 10px; }
+.col-head { flex-wrap: wrap; }
+.col-head h2 { font-size: 1.05rem; white-space: nowrap; }
+.col-head .sub2 { color: var(--muted); font-size: 0.8rem; }
+.col-head .cnt { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.85rem; padding: 1px 9px; border-radius: 99px; background: var(--surface); }
+.col-claude .col-head .cnt { color: var(--doing); }
+.col-check .col-head .cnt { color: var(--accent); }
+.col-later .col-head .cnt { color: var(--muted); }
+.col-later.over { border-color: var(--muted); }
+.pill.later { color: var(--muted); }
+.cards { display: grid; gap: 8px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.card[draggable="true"] { cursor: grab; }
+.card.dragging { opacity: 0.5; }
+.card-top { display: flex; gap: 8px; align-items: flex-start; }
+.title-btn { all: unset; cursor: pointer; display: block; min-width: 0; flex: 1; }
+.title-btn:focus-visible { outline: 2px solid var(--doing); outline-offset: 2px; border-radius: 4px; }
+.title { font-weight: 500; overflow-wrap: anywhere; }
+.meta { color: var(--muted); font-size: 0.76rem; margin-top: 3px; }
+.card-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.area-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: var(--soft); padding: 1px 7px; border-radius: 5px; white-space: nowrap; }
+.empty-col { color: var(--muted); font-size: 0.86rem; text-align: center; padding: 22px 8px; border: 1px dashed var(--line); border-radius: 10px; }
+
+.mini { font: inherit; font-size: 0.78rem; font-weight: 600; padding: 4px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.mini:hover { background: var(--soft); }
+.card.drop-before { box-shadow: 0 -3px 0 0 var(--doing); }
+.card.drop-after { box-shadow: 0 3px 0 0 var(--doing); }
+.movers { margin-left: auto; display: flex; gap: 4px; }
+.mini.mv { padding: 2px 8px; font-size: 0.68rem; color: var(--muted); }
+.mini.ok { color: var(--done); border-color: var(--done); }
+.mini.no { color: var(--blocked); border-color: var(--blocked); }
+.mini.go { color: var(--accent); border-color: var(--accent); }
+.pill { font-size: 0.72rem; font-weight: 600; padding: 2px 9px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
+.pill.todo { color: var(--todo); } .pill.doing { color: var(--doing); } .pill.test { color: var(--test); } .pill.blocked { color: var(--blocked); } .pill.done { color: var(--done); }
+.detail { margin-top: 10px; display: grid; gap: 10px; }
+.detail p { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 66ch; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; cursor: text; }
+.row.rank.open { cursor: auto; }
+.card:not([draggable="true"]) { cursor: auto; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.controls label { font-size: 0.78rem; color: var(--muted); display: grid; gap: 3px; }
+
+/* lists below the board */
+section.lower { margin-top: 30px; }
+.lower-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.lower-head h2 { font-size: 1.1rem; }
+.lower-head .hint { color: var(--muted); font-size: 0.84rem; }
+.lower-head .cnt { margin-left: auto; color: var(--muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.group-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 14px 2px 6px; }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.row { border-top: 1px solid var(--line); padding: 8px 12px; }
+.row:first-child { border-top: 0; }
+.row.rank { cursor: grab; }
+.row.rank .row-main { grid-template-columns: auto 1fr auto auto auto; }
+.row.rank.dragging { opacity: 0.5; }
+.row.drop-before { box-shadow: inset 0 3px 0 0 var(--doing); }
+.row.drop-after { box-shadow: inset 0 -3px 0 0 var(--doing); }
+.list.over { outline: 2px solid var(--doing); outline-offset: -2px; }
+.rank-num { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.78rem; min-width: 1.4em; text-align: right; }
+.row-main { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.check { appearance: none; width: 20px; height: 20px; border: 2px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer; display: grid; place-items: center; margin: 0; }
+.check:hover { border-color: var(--done); }
+.check:checked { background: var(--done); border-color: var(--done); }
+.check:checked::after { content: ""; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
+.row.done .title { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line); }
+details.done-log > summary { cursor: pointer; font-family: var(--font-head); font-weight: 600; font-size: 1.1rem; list-style: none; }
+details.done-log > summary::-webkit-details-marker { display: none; }
+details.done-log > summary::before { content: "▸ "; color: var(--muted); }
+details.done-log[open] > summary::before { content: "▾ "; }
+.state { text-align: center; color: var(--muted); padding: 36px 12px; border: 1px dashed var(--line); border-radius: 12px; margin-top: 26px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 0.86rem; z-index: 20; }
+@media (prefers-reduced-motion: no-preference) { .progress .bar i { transition: width .25s ease; } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div>
+      <h1><svg class="mascot" viewBox="0 0 64 64" role="img" aria-label="Cute mascot"><circle cx="15" cy="14" r="7" fill="var(--face)" stroke="var(--ink)" stroke-opacity="0.2" stroke-width="1.5"/><circle cx="49" cy="14" r="7" fill="var(--face)" stroke="var(--ink)" stroke-opacity="0.2" stroke-width="1.5"/><circle cx="32" cy="36" r="25" fill="var(--face)" stroke="var(--ink)" stroke-opacity="0.2" stroke-width="1.5"/><ellipse cx="23" cy="32" rx="4" ry="5" fill="var(--ink)"/><ellipse cx="41" cy="32" rx="4" ry="5" fill="var(--ink)"/><circle cx="24.4" cy="30" r="1.6" fill="#fff"/><circle cx="42.4" cy="30" r="1.6" fill="#fff"/><ellipse cx="14.5" cy="42" rx="5" ry="3.2" fill="var(--cheek)" opacity="0.75"/><ellipse cx="49.5" cy="42" rx="5" ry="3.2" fill="var(--cheek)" opacity="0.75"/><path d="M27.5 41 Q32 46 36.5 41" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg><span class="h1t">Checklist Board</span></h1>
+      <p class="sub">Claude builds, you check. Order each column by priority: top is first. Drag a card across or up and down, or use the arrow buttons. Every change shows live on the other side.</p>
+    </div>
+    <div class="progress" aria-live="polite">
+      <div class="bar" id="bar"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </header>
+
+  <div class="bar-sticky">
+    <div class="chips" id="areaChips" role="group" aria-label="Area"></div>
+    <button class="chip theme" id="themeBtn" type="button" aria-label="Switch theme: light, dark or cute">Theme</button>
+  </div>
+
+  <form class="add" id="addForm" autocomplete="off">
+    <input type="text" id="newTitle" placeholder="Add an item, e.g. Check the export" aria-label="New item" required>
+    <select id="newArea" aria-label="Area"></select>
+    <select id="newWho" aria-label="Who does it"><option value="Claude">Claude builds</option><option value="Me">I do</option></select>
+    <button class="btn" type="submit">Add</button>
+  </form>
+
+  <main id="main">
+    <div class="state" id="loading">Loading the list…</div>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+  var AREAS = [
+    { id: "writing", name: "Writing", short: "Writing" },
+    { id: "frontend", name: "Frontend", short: "Frontend" },
+    { id: "backend", name: "Backend", short: "Backend" },
+    { id: "data", name: "Data", short: "Data" },
+    { id: "decide", name: "Decisions", short: "Decisions" },
+    { id: "ideas", name: "Ideas", short: "Ideas" }
+  ];
+  var STATUS = [
+    { id: "doing", name: "In progress" },
+    { id: "test", name: "Needs test" },
+    { id: "blocked", name: "Blocked" },
+    { id: "todo", name: "To do" },
+    { id: "later", name: "Later" },
+    { id: "done", name: "Done" }
+  ];
+  var ME = "Me"; // the human owner of this board; Claude writes through the data tool and signs as Claude
+
+  var tasks = [], expanded = {}, filter = { area: "all" };
+  var col = null, loaded = false, writeChain = {}, dragId = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function h(tag, attrs) {
+    var el = document.createElement(tag);
+    for (var k in (attrs || {})) {
+      if (k === "text") el.textContent = attrs[k];
+      else if (k === "class") el.className = attrs[k];
+      else if (k.slice(0, 2) === "on") el.addEventListener(k.slice(2), attrs[k]);
+      else if (attrs[k] !== false && attrs[k] != null) el.setAttribute(k, attrs[k] === true ? "" : attrs[k]);
+    }
+    var add = function (c) {
+      if (c == null || c === false) return;
+      if (Array.isArray(c)) { c.forEach(add); return; }
+      el.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+    };
+    for (var i = 2; i < arguments.length; i++) add(arguments[i]);
+    return el;
+  }
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 3200);
+  }
+  function ago(iso) {
+    var s = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (!isFinite(s)) return "";
+    if (s < 90) return "just now";
+    if (s < 3600) return Math.round(s / 60) + " min ago";
+    if (s < 86400) return Math.round(s / 3600) + " h ago";
+    return Math.round(s / 86400) + " d ago";
+  }
+  function areaName(id) { var a = AREAS.filter(function (x) { return x.id === id; })[0]; return a ? a.short : "Other"; }
+
+  // ---- writes: one at a time per document, signed with the actor and the time -------------
+  function save(id, patch) {
+    if (!col) { toast("The shared list is not available in this view."); return Promise.resolve(); }
+    var stamp = Object.assign({}, patch, { updatedAt: new Date().toISOString(), updatedBy: ME });
+    var prev = writeChain[id] || Promise.resolve();
+    var next = prev.then(function () { return col.doc(id).update(stamp); }).catch(function (e) {
+      toast("Could not save: " + (e && e.code === "invalid_argument" ? "you can only read this list." : (e && e.message) || "try again."));
+    });
+    writeChain[id] = next;
+    return next;
+  }
+  function addTask(title, area, who) {
+    if (!col) return;
+    var now = new Date().toISOString();
+    col.add({ title: title, detail: "", area: area, status: "todo", who: who, note: "", createdAt: now, updatedAt: now, updatedBy: ME })
+      .catch(function (e) { toast("Could not add: " + ((e && e.message) || "try again.")); });
+  }
+  function removeTask(id) {
+    if (!col) return;
+    col.doc(id).delete().catch(function (e) { toast("Could not delete: " + ((e && e.message) || "try again.")); });
+  }
+  // The two moves that make up the workflow.
+  function toCheck(t) { return save(t.id, { status: "test", who: "Me" }); }
+  function toClaude(t) { return save(t.id, { status: t.status === "doing" || t.status === "blocked" ? t.status : "todo", who: "Claude" }); }
+
+  // ---- columns ------------------------------------------------------------------------------
+  var ORDER = { doing: 0, blocked: 1, test: 2, todo: 3, later: 4, done: 5 };
+  function areaRank(id) { for (var i = 0; i < AREAS.length; i++) if (AREAS[i].id === id) return i; return 99; }
+  function sorted(list) {
+    return list.slice().sort(function (a, b) {
+      return (ORDER[a.status] - ORDER[b.status]) || (areaRank(a.area) - areaRank(b.area)) || String(a.createdAt).localeCompare(String(b.createdAt)) || a.id.localeCompare(b.id);
+    });
+  }
+  // Board order: the order you set by hand (rank, top = first priority). Unranked items follow in the default order.
+  function rankOf(t) { return typeof t.rank === "number" ? t.rank : Infinity; }
+  function boardSorted(list) {
+    return list.slice().sort(function (a, b) {
+      var ra = rankOf(a), rb = rankOf(b);
+      if (ra !== rb) return ra < rb ? -1 : 1;
+      return (ORDER[a.status] - ORDER[b.status]) || (areaRank(a.area) - areaRank(b.area)) || String(a.createdAt).localeCompare(String(b.createdAt)) || a.id.localeCompare(b.id);
+    });
+  }
+  function colPred(kind) { return kind === "check" ? inCheck : kind === "later" ? inLater : kind === "mine" ? inMine : inClaude; }
+  function normStatus(t) { return STATUS.some(function (s) { return s.id === t.status; }) ? t.status : "todo"; }
+  function inArea(t) { return filter.area === "all" || t.area === filter.area; }
+  var inClaude = function (t) { var s = normStatus(t); return s !== "done" && s !== "test" && s !== "later" && t.who === "Claude"; };
+  var inCheck = function (t) { return normStatus(t) === "test"; };
+  var inLater = function (t) { return normStatus(t) === "later"; };
+  var inMine = function (t) { var s = normStatus(t); return s !== "done" && s !== "test" && s !== "later" && t.who !== "Claude"; };
+  var isDone = function (t) { return normStatus(t) === "done"; };
+  function count(fn) { return tasks.filter(fn).length; }
+
+  // ---- render -------------------------------------------------------------------------------
+  function chipRow(host, items, current, onPick) {
+    host.textContent = "";
+    items.forEach(function (it) {
+      host.appendChild(h("button", { class: "chip", type: "button", "aria-pressed": String(current === it.id), onclick: function () { onPick(it.id); } },
+        it.name, it.n != null ? h("span", { class: "n", text: String(it.n) }) : null));
+    });
+  }
+  function renderChrome() {
+    var total = tasks.length;
+    var bar = $("bar"), legend = $("legend");
+    bar.textContent = ""; legend.textContent = "";
+    var parts = [
+      { n: count(isDone), color: "done", name: "done" },
+      { n: count(inCheck), color: "test", name: "to check" },
+      { n: count(inLater), color: "muted", name: "later" },
+      { n: count(function (t) { return inClaude(t) && normStatus(t) === "doing"; }), color: "doing", name: "in progress" },
+      { n: count(function (t) { return inClaude(t) && normStatus(t) !== "doing"; }) + count(inMine), color: "todo", name: "to do" }
+    ];
+    parts.forEach(function (p) {
+      if (total) bar.appendChild(h("i", { style: "width:" + (100 * p.n / total) + "%;background:var(--" + p.color + ")" }));
+      if (p.n) legend.appendChild(h("span", null, h("span", { class: "dot", style: "background:var(--" + p.color + ")" }), p.n + " " + p.name));
+    });
+    if (!total) legend.textContent = "No items yet";
+    chipRow($("areaChips"),
+      [{ id: "all", name: "All areas", n: count(function (t) { return !isDone(t); }) }]
+        .concat(AREAS.map(function (a) { return { id: a.id, name: a.short, n: count(function (t) { return t.area === a.id && !isDone(t); }) }; })),
+      filter.area, function (v) { filter.area = v; render(); });
+  }
+
+  function detailBlock(t, status) {
+    var statusSel = h("select", { id: "st-" + t.id, "aria-label": "Status", onchange: function (e) { save(t.id, { status: e.target.value }); } });
+    STATUS.forEach(function (s) { statusSel.appendChild(h("option", { value: s.id, text: s.name })); });
+    statusSel.value = status;
+    var whoSel = h("select", { id: "wh-" + t.id, "aria-label": "Owner", onchange: function (e) { save(t.id, { who: e.target.value }); } },
+      h("option", { value: "Claude", text: "Claude" }), h("option", { value: "Me", text: "Me" }), h("option", { value: "", text: "Anyone" }));
+    whoSel.value = t.who || "";
+    var areaSel = h("select", { id: "ar-" + t.id, "aria-label": "Area", onchange: function (e) { save(t.id, { area: e.target.value }); } });
+    AREAS.forEach(function (a) { areaSel.appendChild(h("option", { value: a.id, text: a.name })); });
+    areaSel.value = t.area;
+    var note = h("textarea", { id: "nt-" + t.id, "aria-label": "Notes", placeholder: "Notes for the other side (saved when you leave the box)" });
+    note.value = t.note || "";
+    note.addEventListener("blur", function () { if (note.value !== (t.note || "")) save(t.id, { note: note.value }); });
+    var del = h("button", { class: "btn ghost danger", type: "button", style: "margin-left:auto", text: "Delete", onclick: function () {
+      if (del.dataset.arm === "1") removeTask(t.id); else { del.dataset.arm = "1"; del.textContent = "Click again to delete"; }
+    } });
+    return h("div", { class: "detail" },
+      t.detail ? h("p", { text: t.detail }) : null,
+      h("div", { class: "controls" }, h("label", null, "Status", statusSel), h("label", null, "Owner", whoSel), h("label", null, "Area", areaSel),
+        h("button", { class: "btn ghost", type: "button", text: "Copy text", onclick: function () {
+          var txt = (t.title || "") + "\n\n" + (t.detail || "") + (t.note ? "\n\nNotes:\n" + t.note : "");
+          var fallback = function () { var ta = document.createElement("textarea"); ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand("copy"); } catch (x) {} document.body.removeChild(ta); toast(ok ? "Copied" : "Select the text and copy it with Ctrl+C"); };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { toast("Copied"); }, fallback); else fallback();
+        } }),
+        del),
+      note);
+  }
+  function titleBlock(t, extraMeta) {
+    var meta = (t.updatedBy ? "Updated by " + t.updatedBy + " " + ago(t.updatedAt) : "");
+    return h("button", { class: "title-btn", type: "button", "aria-expanded": String(!!expanded[t.id]), onclick: function () { expanded[t.id] = !expanded[t.id]; render(); } },
+      h("div", { class: "title", text: t.title || "(untitled)" }),
+      meta ? h("div", { class: "meta", text: meta }) : null);
+  }
+
+  // Put a card into a column at a position (before the card `beforeId`, or at the end) and write the order for
+  // the whole column as ranks 1000, 2000, ...: "top = first priority" then survives reloads and edits by either side.
+  function moveCard(t, kind, beforeId) {
+    var patch = kind === "check" ? { status: "test", who: "Me" }
+      : kind === "later" ? { status: "later" }
+      : kind === "mine" ? { status: t.status === "doing" || t.status === "blocked" ? t.status : "todo", who: "Me" }
+      : { status: t.status === "doing" || t.status === "blocked" ? t.status : "todo", who: "Claude" };
+    var items = boardSorted(tasks.filter(function (x) { return x.id !== t.id && colPred(kind)(x); }));
+    var idx = beforeId ? items.map(function (x) { return x.id; }).indexOf(beforeId) : items.length;
+    if (idx < 0) idx = items.length;
+    items.splice(idx, 0, t);
+    items.forEach(function (x, i) {
+      var r = (i + 1) * 1000;
+      if (x.id === t.id) save(x.id, Object.assign({ rank: r }, patch));
+      else if (x.rank !== r) save(x.id, { rank: r });
+    });
+  }
+  function nudge(t, kind, dir) {
+    var items = boardSorted(tasks.filter(colPred(kind)));
+    var i = items.map(function (x) { return x.id; }).indexOf(t.id), j = i + dir;
+    if (i < 0 || j < 0 || j >= items.length) return;
+    moveCard(t, kind, dir < 0 ? items[j].id : (items[j + 1] ? items[j + 1].id : null));
+  }
+
+  // A card on the board.
+  function renderCard(t, which) {
+    var status = normStatus(t);
+    var actions = [];
+    if (which === "check") {
+      actions.push(h("button", { class: "mini ok", type: "button", onclick: function () { save(t.id, { status: "done", who: "Me" }); }, text: "Works" }));
+      actions.push(h("button", { class: "mini no", type: "button", title: "Send back to Claude; say what is wrong in the notes", onclick: function () { expanded[t.id] = true; toClaude(Object.assign({}, t, { status: "todo" })); }, text: "Not yet" }));
+    } else if (which === "later") {
+      actions.push(h("button", { class: "mini", type: "button", title: "Put it back on the list", onclick: function () { save(t.id, { status: "todo" }); }, text: "Back to list" }));
+    } else {
+      if (status === "todo") actions.push(h("button", { class: "mini", type: "button", onclick: function () { save(t.id, { status: "doing" }); }, text: "Start" }));
+      actions.push(h("button", { class: "mini go", type: "button", title: "Built and ready for your check", onclick: function () { toCheck(t); }, text: "Ready to check" }));
+      actions.push(h("button", { class: "mini", type: "button", title: "Park it for later", onclick: function () { save(t.id, { status: "later" }); }, text: "Later" }));
+    }
+    var card = h("div", { class: "card", draggable: expanded[t.id] ? false : "true" },
+      h("div", { class: "card-top" }, titleBlock(t), h("span", { class: "area-tag", text: areaName(t.area) })),
+      h("div", { class: "card-actions" },
+        status === "doing" || status === "blocked" ? h("span", { class: "pill " + status, text: STATUS.filter(function (s) { return s.id === status; })[0].name }) : null,
+        actions,
+        h("span", { class: "movers" },
+          h("button", { class: "mini mv", type: "button", "aria-label": "Higher priority", title: "Higher priority", onclick: function () { nudge(t, which, -1); }, text: "\u25B2" }),
+          h("button", { class: "mini mv", type: "button", "aria-label": "Lower priority", title: "Lower priority", onclick: function () { nudge(t, which, 1); }, text: "\u25BC" }))),
+      expanded[t.id] ? detailBlock(t, status) : null);
+    card.addEventListener("dragstart", function (e) { dragId = t.id; card.classList.add("dragging"); try { e.dataTransfer.setData("text/plain", t.id); e.dataTransfer.effectAllowed = "move"; } catch (x) {} });
+    card.addEventListener("dragend", function () { dragId = null; card.classList.remove("dragging"); });
+    // Dropping on a card puts the dragged one above or below it (upper / lower half of the card).
+    card.addEventListener("dragover", function (e) {
+      if (!dragId || dragId === t.id) return;
+      e.preventDefault(); e.stopPropagation();
+      var r = card.getBoundingClientRect(), before = e.clientY < r.top + r.height / 2;
+      card.classList.toggle("drop-before", before); card.classList.toggle("drop-after", !before);
+    });
+    card.addEventListener("dragleave", function () { card.classList.remove("drop-before", "drop-after"); });
+    card.addEventListener("drop", function (e) {
+      if (!dragId || dragId === t.id) return;
+      e.preventDefault(); e.stopPropagation();
+      var before = card.classList.contains("drop-before");
+      card.classList.remove("drop-before", "drop-after");
+      var moved = tasks.filter(function (x) { return x.id === dragId; })[0];
+      dragId = null;
+      document.querySelectorAll(".col.over").forEach(function (el) { el.classList.remove("over"); });
+      if (!moved) return;
+      var items = boardSorted(tasks.filter(function (x) { return x.id !== moved.id && colPred(which)(x); }));
+      var i = items.map(function (x) { return x.id; }).indexOf(t.id);
+      moveCard(moved, which, before ? t.id : (items[i + 1] ? items[i + 1].id : null));
+    });
+    return card;
+  }
+  function renderColumn(kind, title, sub, items) {
+    var body = items.length ? h("div", { class: "cards" }, items.map(function (t) { return renderCard(t, kind); }))
+      : h("div", { class: "empty-col", text: kind === "check" ? "Nothing waiting for your check." : kind === "later" ? "Nothing parked." : "Nothing queued for Claude." });
+    var c = h("div", { class: "col col-" + kind },
+      h("div", { class: "col-head" }, h("h2", { text: title }), h("span", { class: "sub2", text: sub }), h("span", { class: "cnt", text: String(items.length) })),
+      body);
+    c.addEventListener("dragover", function (e) { if (dragId) { e.preventDefault(); c.classList.add("over"); } });
+    c.addEventListener("dragleave", function (e) { if (!c.contains(e.relatedTarget)) c.classList.remove("over"); });
+    c.addEventListener("drop", function (e) {
+      e.preventDefault(); c.classList.remove("over");
+      var t = tasks.filter(function (x) { return x.id === dragId; })[0];
+      dragId = null;
+      if (!t) return;
+      moveCard(t, kind, null);
+    });
+    return c;
+  }
+
+  // A row in the lists below the board.
+  function renderRow(t) {
+    var status = normStatus(t);
+    var chk = h("input", { type: "checkbox", class: "check", "aria-label": "Done: " + t.title, onchange: function (e) {
+      save(t.id, { status: e.target.checked ? "done" : "todo" });
+    } });
+    chk.checked = status === "done";
+    var row = h("div", { class: "row" + (status === "done" ? " done" : "") },
+      h("div", { class: "row-main" }, chk, titleBlock(t),
+        h("span", { class: "pill " + status, text: STATUS.filter(function (s) { return s.id === status; })[0].name })));
+    if (expanded[t.id]) row.appendChild(detailBlock(t, status));
+    return row;
+  }
+  // Your own tasks as one ranked list (top = first priority): drag a row, or use the arrows; the order is saved as `rank`.
+  function renderyouRow(t, i) {
+    var row = renderRow(t); row.classList.add("rank"); if (!expanded[t.id]) row.setAttribute("draggable", "true"); else row.classList.add("open");
+    var main = row.querySelector(".row-main"), pill = main.querySelector(".pill");
+    main.insertBefore(h("span", { class: "area-tag", text: areaName(t.area) }), pill);
+    main.appendChild(h("span", { class: "movers" },
+      h("button", { class: "mini mv", type: "button", "aria-label": "Higher priority", title: "Higher priority", onclick: function () { nudge(t, "mine", -1); }, text: "▲" }),
+      h("button", { class: "mini mv", type: "button", "aria-label": "Lower priority", title: "Lower priority", onclick: function () { nudge(t, "mine", 1); }, text: "▼" })));
+    row.addEventListener("dragstart", function (e) { dragId = t.id; row.classList.add("dragging"); try { e.dataTransfer.setData("text/plain", t.id); e.dataTransfer.effectAllowed = "move"; } catch (x) {} });
+    row.addEventListener("dragend", function () { dragId = null; row.classList.remove("dragging"); });
+    row.addEventListener("dragover", function (e) {
+      if (!dragId || dragId === t.id) return;
+      e.preventDefault(); e.stopPropagation();
+      var r = row.getBoundingClientRect(), before = e.clientY < r.top + r.height / 2;
+      row.classList.toggle("drop-before", before); row.classList.toggle("drop-after", !before);
+    });
+    row.addEventListener("dragleave", function () { row.classList.remove("drop-before", "drop-after"); });
+    row.addEventListener("drop", function (e) {
+      if (!dragId || dragId === t.id) return;
+      e.preventDefault(); e.stopPropagation();
+      var before = row.classList.contains("drop-before");
+      row.classList.remove("drop-before", "drop-after");
+      var moved = tasks.filter(function (x) { return x.id === dragId; })[0];
+      dragId = null;
+      if (!moved) return;
+      var items = boardSorted(tasks.filter(function (x) { return x.id !== moved.id && inMine(x); }));
+      var k = items.map(function (x) { return x.id; }).indexOf(t.id);
+      moveCard(moved, "mine", before ? t.id : (items[k + 1] ? items[k + 1].id : null));
+    });
+    return row;
+  }
+  function mineList(items) {
+    var list = h("div", { class: "list" }, boardSorted(items).map(renderyouRow));
+    list.addEventListener("dragover", function (e) { if (dragId) { e.preventDefault(); list.classList.add("over"); } });
+    list.addEventListener("dragleave", function (e) { if (!list.contains(e.relatedTarget)) list.classList.remove("over"); });
+    list.addEventListener("drop", function (e) {
+      e.preventDefault(); list.classList.remove("over");
+      var t = tasks.filter(function (x) { return x.id === dragId; })[0]; dragId = null;
+      if (t) moveCard(t, "mine", null);
+    });
+    return list;
+  }
+  function groupedList(items) {
+    var wrap = h("div", null);
+    AREAS.forEach(function (a) {
+      var inA = sorted(items.filter(function (t) { return t.area === a.id; }));
+      if (!inA.length) return;
+      wrap.appendChild(h("div", { class: "group-label", text: a.name }));
+      wrap.appendChild(h("div", { class: "list" }, inA.map(renderRow)));
+    });
+    var known = AREAS.map(function (a) { return a.id; });
+    var stray = sorted(items.filter(function (t) { return known.indexOf(t.area) < 0; }));
+    if (stray.length) { wrap.appendChild(h("div", { class: "group-label", text: "Other" })); wrap.appendChild(h("div", { class: "list" }, stray.map(renderRow))); }
+    return wrap;
+  }
+
+  var doneOpen = false;
+  function render() {
+    renderChrome();
+    var main = $("main"); main.textContent = "";
+    if (!loaded) { main.appendChild(h("div", { class: "state", id: "loading", text: "Loading the list…" })); return; }
+    if (!tasks.length) { main.appendChild(h("div", { class: "state", text: "The list is empty. Add the first item above." })); return; }
+
+    var claude = boardSorted(tasks.filter(function (t) { return inClaude(t) && inArea(t); }));
+    var check = boardSorted(tasks.filter(function (t) { return inCheck(t) && inArea(t); }));
+    var later = boardSorted(tasks.filter(function (t) { return inLater(t) && inArea(t); }));
+    main.appendChild(h("div", { class: "board" },
+      renderColumn("claude", "Claude builds", "to do and in progress", claude),
+      renderColumn("check", "You check", "built, waiting for your check", check),
+      renderColumn("later", "Later", "parked for now", later)));
+
+    var mine = tasks.filter(function (t) { return inMine(t) && inArea(t); });
+    if (mine.length) {
+      main.appendChild(h("section", { class: "lower" },
+        h("div", { class: "lower-head" }, h("h2", { text: "You do" }), h("span", { class: "hint", text: "drag to rank, top = first" }), h("span", { class: "cnt", text: String(mine.length) })),
+        mineList(mine)));
+    }
+    var done = tasks.filter(function (t) { return isDone(t) && inArea(t); });
+    var det = h("details", { class: "done-log" }, h("summary", null, "Done (" + done.length + ")"), groupedList(done));
+    if (doneOpen) det.setAttribute("open", "");
+    det.addEventListener("toggle", function () { doneOpen = det.open; });
+    main.appendChild(h("section", { class: "lower" }, det));
+  }
+
+  // ---- boot ---------------------------------------------------------------------------------
+  AREAS.forEach(function (a) { $("newArea").appendChild(h("option", { value: a.id, text: a.name })); });
+  $("newArea").value = "frontend";
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = $("newTitle").value.trim();
+    if (!title) return;
+    addTask(title, $("newArea").value, $("newWho").value);
+    $("newTitle").value = "";
+  });
+  // three themes: light, dark, cute; the choice is kept in this browser when storage is available
+  var THEMES = ["light", "dark", "cute"];
+  function currentTheme() { var t = document.documentElement.getAttribute("data-theme"); return t || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
+  function setTheme(t) { document.documentElement.setAttribute("data-theme", t); $("themeBtn").textContent = "Theme: " + t; try { localStorage.setItem("checklist-theme", t); } catch (e) {} }
+  try { var saved = localStorage.getItem("checklist-theme"); if (THEMES.indexOf(saved) >= 0) setTheme(saved); else $("themeBtn").textContent = "Theme: " + currentTheme(); } catch (e) { $("themeBtn").textContent = "Theme: " + currentTheme(); }
+  $("themeBtn").addEventListener("click", function () { setTheme(THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length]); });
+
+  render();
+  var slow = setTimeout(function () { if (!loaded && $("loading")) $("loading").textContent = "The list can't be reached yet. Still trying…"; }, 10000);
+
+  (window.claude && window.claude.use ? window.claude.use("db") : Promise.resolve(null)).then(function (store) {
+    if (!store) { clearTimeout(slow); loaded = true; tasks = []; render(); toast("The shared list needs a signed-in view."); return; }
+    col = store.collection("tasks");
+    col.onSnapshot(function (snap) {
+      clearTimeout(slow); loaded = true;
+      tasks = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+      var a = document.activeElement;
+      if (a && a.tagName === "TEXTAREA") return; // do not replace a notes box someone is typing in
+      render();
+    }, function (err) {
+      clearTimeout(slow); loaded = true; render();
+      toast(err && err.code === "revoked" ? "Access to the list changed." : "The list stopped updating. Reload the page.");
+    });
+  });
+})();
+</script>
+
