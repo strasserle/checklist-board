@@ -1,8 +1,8 @@
 # Checklist board for working with Claude
 
-| Light | Dark | Cute |
-| --- | --- | --- |
-| ![Light theme](docs/screenshots/light.png) | ![Dark theme](docs/screenshots/dark.png) | ![Cute theme](docs/screenshots/cute.png) |
+| Light | Dark | Cute | Maritime |
+| --- | --- | --- | --- |
+| ![Light theme](docs/screenshots/light.png) | ![Dark theme](docs/screenshots/dark.png) | ![Cute theme](docs/screenshots/cute.png) | ![Maritime theme](docs/screenshots/maritime.png) |
 
 A small shared to-do board for a human and Claude. Claude builds, you check.
 It is a single HTML page that runs as a **claude.ai Artifact** with the `db` and `comments` capabilities.
@@ -64,7 +64,7 @@ read and write it with the `ArtifactData` tool).
 
 - `AREAS` near the top of the script: your own categories.
 - `ME`: the name shown as the author of your edits.
-- Three themes (light, dark, cute) via the Theme button.
+- Four themes (light, dark, cute, maritime) via the Theme button.
 - Screenshots: `python docs/make_screenshots.py` (needs Playwright with Chromium).
 
 ## License
