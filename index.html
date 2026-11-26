@@ -383,7 +383,7 @@ details.done-log[open] > summary::before { content: "▾ "; }
       hist.appendChild(h("div", { class: "msg " + (m.from === "Claude" ? "claude" : "me") },
         h("div", { class: "meta", text: (m.from || "?") + (m.at ? " · " + ago(m.at) : "") }), h("div", { text: m.text || "" })));
     });
-    var box = h("div", { class: "ask" }, Object.keys(th).length ? hist : null, ta, h("div", { class: "controls" }, btn, msg));
+    var box = h("div", { class: "ask" }, Object.keys(th).length ? hist : null, ta, h("div", { class: "controls" }, msg)); // no button: Enter sends (btn stays detached and only gates sending)
     if (Object.keys(th).length) setTimeout(function () { hist.scrollTop = hist.scrollHeight; }, 0);
     getComments().then(function (c) {
       if (!c || !c.canSendToClaude) { box.hidden = true; return; }
