@@ -107,8 +107,8 @@ textarea { width: 100%; resize: vertical; min-height: 58px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 .card[draggable="true"] { cursor: grab; }
 .card.dragging { opacity: 0.5; }
-.card-top { display: flex; gap: 8px; align-items: flex-start; }
-.title-btn { all: unset; cursor: pointer; display: block; min-width: 0; flex: 1; }
+.card-top { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: flex-start; }
+.title-btn { all: unset; cursor: pointer; display: block; min-width: 0; flex: 1 1 10em; }
 .title-btn:focus-visible { outline: 2px solid var(--doing); outline-offset: 2px; border-radius: 4px; }
 .title { font-weight: 500; overflow-wrap: anywhere; }
 .meta { color: var(--muted); font-size: 0.76rem; margin-top: 3px; }
@@ -151,13 +151,15 @@ section.lower { margin-top: 30px; }
 .row { border-top: 1px solid var(--line); padding: 8px 12px; }
 .row:first-child { border-top: 0; }
 .row.rank { cursor: grab; }
-.row.rank .row-main { grid-template-columns: auto 1fr auto auto auto; }
 .row.rank.dragging { opacity: 0.5; }
 .row.drop-before { box-shadow: inset 0 3px 0 0 var(--doing); }
 .row.drop-after { box-shadow: inset 0 -3px 0 0 var(--doing); }
 .list.over { outline: 2px solid var(--doing); outline-offset: -2px; }
 .rank-num { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.78rem; min-width: 1.4em; text-align: right; }
-.row-main { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+/* Wraps: the title keeps at least ~12em; area tag, status pill and the arrows move below it when the window is narrow. */
+.row-main { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.row-main .title-btn { flex: 1 1 12em; }
+.row-main .movers { margin-left: auto; }
 .check { appearance: none; width: 20px; height: 20px; border: 2px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer; display: grid; place-items: center; margin: 0; }
 .check:hover { border-color: var(--done); }
 .check:checked { background: var(--done); border-color: var(--done); }
