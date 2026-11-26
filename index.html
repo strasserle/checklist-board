@@ -134,7 +134,9 @@ textarea { width: 100%; resize: vertical; min-height: 58px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 .controls label { font-size: 0.78rem; color: var(--muted); display: grid; gap: 3px; }
 
-.ask { display: grid; gap: 6px; }
+.ask { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--surface); }
+.ask textarea { min-height: 44px; }
+.detail textarea[id^="nt-"] { font-size: 0.82rem; min-height: 40px; padding: 6px 8px; }
 .hist { display: grid; gap: 6px; max-height: 240px; overflow-y: auto; align-content: start; }
 .msg { background: var(--soft); border-radius: 8px; padding: 6px 10px; font-size: 0.88rem; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; cursor: text; }
 .msg.claude { background: var(--accent-soft); }
