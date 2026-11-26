@@ -61,3 +61,7 @@ read and write it with the `ArtifactData` tool).
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Contribute
+
+Pull requests with custom themes or new features are welcome ;)
