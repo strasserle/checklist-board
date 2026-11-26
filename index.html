@@ -57,7 +57,7 @@ h1 { display: flex; align-items: center; gap: 10px; }
 @media (prefers-reduced-motion: no-preference) { :root[data-theme="cute"] .mascot { animation: bob 2.6s ease-in-out infinite; } @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } } }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.45; }
-.wrap { max-width: 1040px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; margin: 0; }
 h1 { font-size: 1.9rem; letter-spacing: -0.01em; }
 .sub { color: var(--muted); margin: 4px 0 0; max-width: 60ch; }
@@ -88,7 +88,7 @@ textarea { width: 100%; resize: vertical; min-height: 58px; }
 @media (max-width: 640px) { .add { grid-template-columns: 1fr 1fr; } .add input[type=text] { grid-column: 1 / -1; } .add .btn { grid-column: 1 / -1; } }
 
 /* board */
-.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; margin-top: 18px; align-items: start; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 18px; align-items: start; }
 @media (max-width: 760px) { .board { grid-template-columns: 1fr; } }
 .col { background: var(--soft); border-radius: 14px; padding: 10px; min-width: 0; min-height: 140px; border: 2px solid transparent; }
 .col.over { border-color: var(--doing); }
@@ -344,9 +344,6 @@ details.done-log[open] > summary::before { content: "▾ "; }
   }
 
   function detailBlock(t, status) {
-    var statusSel = h("select", { id: "st-" + t.id, "aria-label": "Status", onchange: function (e) { save(t.id, { status: e.target.value }); } });
-    STATUS.forEach(function (s) { statusSel.appendChild(h("option", { value: s.id, text: s.name })); });
-    statusSel.value = status;
     var whoSel = h("select", { id: "wh-" + t.id, "aria-label": "Owner", onchange: function (e) { save(t.id, { who: e.target.value }); } },
       h("option", { value: "Claude", text: "Claude" }), h("option", { value: "Me", text: "Me" }), h("option", { value: "", text: "Anyone" }));
     whoSel.value = t.who || "";
@@ -359,13 +356,14 @@ details.done-log[open] > summary::before { content: "▾ "; }
     var chatIn = h("input", { type: "text", id: "ch-" + t.id, "aria-label": "Claude chat that owns this row", placeholder: "chat id", size: "14", style: "font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px" });
     chatIn.value = t.chat || "";
     chatIn.addEventListener("blur", function () { if (chatIn.value.trim() !== (t.chat || "")) save(t.id, { chat: chatIn.value.trim() }); });
+    var blockBtn = ["todo", "doing", "blocked"].indexOf(status) < 0 ? null : h("button", { class: "btn ghost", type: "button", text: status === "blocked" ? "Unblock" : "Block", onclick: function () { save(t.id, { status: status === "blocked" ? "todo" : "blocked" }); } });
     var del = h("button", { class: "btn ghost danger", type: "button", style: "margin-left:auto", text: "Delete", onclick: function () {
       if (del.dataset.arm === "1") removeTask(t.id); else { del.dataset.arm = "1"; del.textContent = "Click again to delete"; }
     } });
     return h("div", { class: "detail" },
       t.detail ? h("p", { text: t.detail }) : null,
-      h("div", { class: "controls" }, h("label", null, "Status", statusSel), h("label", null, "Owner", whoSel), h("label", null, "Area", areaSel), h("label", null, "Chat (id)", chatIn),
-        del),
+      h("div", { class: "controls" }, h("label", null, "Owner", whoSel), h("label", null, "Area", areaSel), h("label", null, "Chat (id)", chatIn),
+        blockBtn, del),
       note, askBlock(t));
   }
   // Message to Claude on one row: posts a comment anchored to the row and sends it to the Claude session (comments capability, editors only).
@@ -454,7 +452,8 @@ details.done-log[open] > summary::before { content: "▾ "; }
       actions.push(h("button", { class: "mini", type: "button", title: "Put it back on the list", onclick: function () { save(t.id, { status: "todo" }); }, text: "Back to list" }));
     } else {
       if (status === "todo") actions.push(h("button", { class: "mini", type: "button", onclick: function () { save(t.id, { status: "doing" }); }, text: "Start" }));
-      actions.push(h("button", { class: "mini go", type: "button", title: "Built and ready for your check", onclick: function () { toCheck(t); }, text: "Ready to check" }));
+      if (which === "mine") actions.push(h("button", { class: "mini ok", type: "button", title: "Mark as done", onclick: function () { save(t.id, { status: "done" }); }, text: "Done" }));
+      else actions.push(h("button", { class: "mini go", type: "button", title: "Built and ready for your check", onclick: function () { toCheck(t); }, text: "Ready to check" }));
       actions.push(h("button", { class: "mini", type: "button", title: "Park it for later", onclick: function () { save(t.id, { status: "later" }); }, text: "Later" }));
     }
     var card = h("div", { class: "card", draggable: expanded[t.id] ? false : "true" },
@@ -493,7 +492,7 @@ details.done-log[open] > summary::before { content: "▾ "; }
   }
   function renderColumn(kind, title, sub, items) {
     var body = items.length ? h("div", { class: "cards" }, items.map(function (t) { return renderCard(t, kind); }))
-      : h("div", { class: "empty-col", text: kind === "check" ? "Nothing waiting for your check." : kind === "later" ? "Nothing parked." : "Nothing queued for Claude." });
+      : h("div", { class: "empty-col", text: kind === "check" ? "Nothing waiting for your check." : kind === "later" ? "Nothing parked." : kind === "mine" ? "Nothing for you." : "Nothing queued for Claude." });
     var c = h("div", { class: "col col-" + kind },
       h("div", { class: "col-head" }, h("h2", { text: title }), h("span", { class: "sub2", text: sub }), h("span", { class: "cnt", text: String(items.length) })),
       body);
@@ -509,60 +508,14 @@ details.done-log[open] > summary::before { content: "▾ "; }
     return c;
   }
 
-  // A row in the lists below the board.
+  // A row in the done log: title and a Reopen button.
   function renderRow(t) {
     var status = normStatus(t);
-    var chk = h("input", { type: "checkbox", class: "check", "aria-label": "Done: " + t.title, onchange: function (e) {
-      save(t.id, { status: e.target.checked ? "done" : "todo" });
-    } });
-    chk.checked = status === "done";
-    var row = h("div", { class: "row" + (status === "done" ? " done" : "") },
-      h("div", { class: "row-main" }, chk, titleBlock(t),
-        h("span", { class: "pill " + status, text: STATUS.filter(function (s) { return s.id === status; })[0].name })));
+    var row = h("div", { class: "row done" },
+      h("div", { class: "row-main" }, titleBlock(t),
+        h("button", { class: "mini", type: "button", text: "Reopen", onclick: function () { save(t.id, { status: "todo" }); } })));
     if (expanded[t.id]) row.appendChild(detailBlock(t, status));
     return row;
-  }
-  // Your own tasks as one ranked list (top = first priority): drag a row, or use the arrows; the order is saved as `rank`.
-  function renderyouRow(t, i) {
-    var row = renderRow(t); row.classList.add("rank"); if (!expanded[t.id]) row.setAttribute("draggable", "true"); else row.classList.add("open");
-    var main = row.querySelector(".row-main"), pill = main.querySelector(".pill");
-    main.insertBefore(h("span", { class: "area-tag", text: areaName(t.area) }), pill);
-    main.appendChild(h("span", { class: "movers" },
-      h("button", { class: "mini mv", type: "button", "aria-label": "Higher priority", title: "Higher priority", onclick: function () { nudge(t, "mine", -1); }, text: "▲" }),
-      h("button", { class: "mini mv", type: "button", "aria-label": "Lower priority", title: "Lower priority", onclick: function () { nudge(t, "mine", 1); }, text: "▼" })));
-    row.addEventListener("dragstart", function (e) { dragId = t.id; row.classList.add("dragging"); try { e.dataTransfer.setData("text/plain", t.id); e.dataTransfer.effectAllowed = "move"; } catch (x) {} });
-    row.addEventListener("dragend", function () { dragId = null; row.classList.remove("dragging"); });
-    row.addEventListener("dragover", function (e) {
-      if (!dragId || dragId === t.id) return;
-      e.preventDefault(); e.stopPropagation();
-      var r = row.getBoundingClientRect(), before = e.clientY < r.top + r.height / 2;
-      row.classList.toggle("drop-before", before); row.classList.toggle("drop-after", !before);
-    });
-    row.addEventListener("dragleave", function () { row.classList.remove("drop-before", "drop-after"); });
-    row.addEventListener("drop", function (e) {
-      if (!dragId || dragId === t.id) return;
-      e.preventDefault(); e.stopPropagation();
-      var before = row.classList.contains("drop-before");
-      row.classList.remove("drop-before", "drop-after");
-      var moved = tasks.filter(function (x) { return x.id === dragId; })[0];
-      dragId = null;
-      if (!moved) return;
-      var items = boardSorted(tasks.filter(function (x) { return x.id !== moved.id && inMine(x); }));
-      var k = items.map(function (x) { return x.id; }).indexOf(t.id);
-      moveCard(moved, "mine", before ? t.id : (items[k + 1] ? items[k + 1].id : null));
-    });
-    return row;
-  }
-  function mineList(items) {
-    var list = h("div", { class: "list" }, boardSorted(items).map(renderyouRow));
-    list.addEventListener("dragover", function (e) { if (dragId) { e.preventDefault(); list.classList.add("over"); } });
-    list.addEventListener("dragleave", function (e) { if (!list.contains(e.relatedTarget)) list.classList.remove("over"); });
-    list.addEventListener("drop", function (e) {
-      e.preventDefault(); list.classList.remove("over");
-      var t = tasks.filter(function (x) { return x.id === dragId; })[0]; dragId = null;
-      if (t) moveCard(t, "mine", null);
-    });
-    return list;
   }
   function groupedList(items) {
     var wrap = h("div", null);
@@ -588,17 +541,13 @@ details.done-log[open] > summary::before { content: "▾ "; }
     var claude = boardSorted(tasks.filter(function (t) { return inClaude(t) && inArea(t); }));
     var check = boardSorted(tasks.filter(function (t) { return inCheck(t) && inArea(t); }));
     var later = boardSorted(tasks.filter(function (t) { return inLater(t) && inArea(t); }));
+    var mine = boardSorted(tasks.filter(function (t) { return inMine(t) && inArea(t); }));
     main.appendChild(h("div", { class: "board" },
       renderColumn("claude", "Claude builds", "to do and in progress", claude),
       renderColumn("check", "You check", "built, waiting for your check", check),
+      renderColumn("mine", "You do", "your own tasks", mine),
       renderColumn("later", "Later", "parked for now", later)));
 
-    var mine = tasks.filter(function (t) { return inMine(t) && inArea(t); });
-    if (mine.length) {
-      main.appendChild(h("section", { class: "lower" },
-        h("div", { class: "lower-head" }, h("h2", { text: "You do" }), h("span", { class: "hint", text: "drag to rank, top = first" }), h("span", { class: "cnt", text: String(mine.length) })),
-        mineList(mine)));
-    }
     var done = tasks.filter(function (t) { return isDone(t) && inArea(t); });
     var det = h("details", { class: "done-log" }, h("summary", null, "Done (" + done.length + ")"), groupedList(done));
     if (doneOpen) det.setAttribute("open", "");
