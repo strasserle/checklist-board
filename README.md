@@ -51,8 +51,10 @@ running Claude session that is watching the artifact, and the history stays on t
 My to-do list is a claude.ai artifact: <your artifact URL> (db collection `tasks`,
 read and write it with the `ArtifactData` tool).
 - Messages I send from a row's message box reach you as a comment starting with
-  `[board row <id>: <title>]`. Answer in the comment thread and also append the answer to the
-  row's `thread` map as `{from: "Claude", at: <ISO time>, text}` under a new timestamp key.
+  `[board row <id>: <title>]`. The page already saves my message in the row's `thread` map, so
+  do not append it again. Answer in the comment thread and also append your answer to `thread`
+  as `{from: "Claude", at: <real current ISO time>, text}` under the key `<at>-Claude`. The page
+  shows only what is in `thread`; comment replies are not visible there.
 - Put results in `detail`; my `note` is only my own notes.
 - Create a row for every new task I name before starting it (status `doing`, `who` "Claude").
 - When finished, set status `test` and `who` "Me"; say in `detail` what was done and how it

@@ -422,14 +422,24 @@ details.done-log[open] > summary::before { content: "▾ "; }
     var paint = function () {
       hist.textContent = "";
       var keys = Object.keys(th).sort(), last = null;
-      keys.forEach(function (k) { var m = th[k] || {}; last = m; hist.appendChild(bubble(m, false)); });
+      var norm = function (x) { return String(x || "").toLowerCase().replace(/\s+/g, " ").trim(); };
+      keys.forEach(function (k) {
+        var m = th[k] || {};
+        // the same sender repeating the same text within 5 min is one message that got saved twice (page and Claude both appended it)
+        if (last && last.from === m.from && norm(last.text) === norm(m.text) && Math.abs(new Date(m.at) - new Date(last.at)) < 300000) { last = m; return; }
+        last = m; hist.appendChild(bubble(m, false));
+      });
       var pd = pending[t.id], waiting = false;
       if (pd) { hist.appendChild(bubble(pd, !pd.saved)); waiting = true; }
       else if (last && last.from !== "Claude" && last.at && Date.now() - new Date(last.at).getTime() < THINK_MS) waiting = true;
       if (waiting) {
-        var think = h("div", { class: "msg thinking", role: "status" }, h("span", { class: "dots" }, h("span"), h("span"), h("span")), h("span", { text: "Claude is thinking…" }));
-        hist.appendChild(think);
-        if (!pd) setTimeout(function () { if (think.parentNode) think.remove(); hist.hidden = !hist.childNodes.length; }, THINK_MS - (Date.now() - new Date(last.at).getTime()));
+        var el = Date.now() - new Date(pd ? pd.at : last.at).getTime();
+        var label = el < 180000 ? "Claude is thinking…" : "Still waiting for Claude… a Claude session has to be open on this board to answer.";
+        hist.appendChild(h("div", { class: "msg thinking", role: "status" }, h("span", { class: "dots" }, h("span"), h("span"), h("span")), h("span", { text: label })));
+        var nextAt = el < 180000 ? 180000 - el : (el < THINK_MS ? THINK_MS - el : 0);
+        if (nextAt) setTimeout(function () { if (document.body.contains(hist)) paint(); }, nextAt + 50);
+      } else if (last && last.from !== "Claude" && last.at && !pd) {
+        hist.appendChild(h("div", { class: "meta", text: "No answer yet. Claude may not have a session open on this board." }));
       }
       hist.hidden = !hist.childNodes.length;
       hist.scrollTop = hist.scrollHeight;
