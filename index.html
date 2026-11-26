@@ -344,6 +344,35 @@ details.done-log[open] > summary::before { content: "▾ "; }
       [{ id: "all", name: "All areas", n: count(function (t) { return !isDone(t); }) }]
         .concat(AREAS.map(function (a) { return { id: a.id, name: a.short, n: count(function (t) { return t.area === a.id && !isDone(t); }) }; })),
       filter.area, function (v) { filter.area = v; render(); });
+    addAreaControl($("areaChips"));
+  }
+  // "+ Category": adds a category that everyone sees (kept in the db collection "areas")
+  var BASE_AREAS = AREAS.slice(), areasCol = null, addingArea = false;
+  function slug(x) { return String(x).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40); }
+  function addAreaControl(host) {
+    if (!addingArea) {
+      host.appendChild(h("button", { class: "chip", type: "button", title: "Add a category", "aria-label": "Add a category", onclick: function () { addingArea = true; renderChrome(); var i = $("newAreaName"); if (i) i.focus(); } }, "+ Category"));
+      return;
+    }
+    var inp = h("input", { type: "text", id: "newAreaName", placeholder: "New category", "aria-label": "New category name", maxlength: "30", style: "font:inherit;font-size:0.82rem;padding:4px 10px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--ink);width:10em" });
+    var done = function () { addingArea = false; renderChrome(); };
+    var go = function () {
+      var name = inp.value.trim(), id = slug(name);
+      if (!id) return done();
+      if (AREAS.some(function (a) { return a.id === id; })) { toast("That category exists already."); return done(); }
+      if (!areasCol) { toast("Categories cannot be saved in this view."); return done(); }
+      areasCol.add({ id: id, name: name, short: name, rank: AREAS.length, createdAt: new Date().toISOString() }).then(function () { filter.area = id; }, function (e) { toast("Could not add: " + ((e && e.message) || "try again.")); });
+      done();
+    };
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); go(); } else if (e.key === "Escape") done(); });
+    host.appendChild(inp);
+    host.appendChild(h("button", { class: "chip", type: "button", onclick: go }, "Add"));
+    host.appendChild(h("button", { class: "chip", type: "button", onclick: done }, "Cancel"));
+  }
+  function fillNewArea() {
+    var sel = $("newArea"), v = sel.value; sel.textContent = "";
+    AREAS.forEach(function (a) { sel.appendChild(h("option", { value: a.id, text: a.name })); });
+    sel.value = AREAS.some(function (a) { return a.id === v; }) ? v : (AREAS.some(function (a) { return a.id === "frontend"; }) ? "frontend" : AREAS[0].id);
   }
 
   function detailBlock(t, status) {
@@ -567,8 +596,7 @@ details.done-log[open] > summary::before { content: "▾ "; }
   }
 
   // ---- boot ---------------------------------------------------------------------------------
-  AREAS.forEach(function (a) { $("newArea").appendChild(h("option", { value: a.id, text: a.name })); });
-  $("newArea").value = "frontend";
+  fillNewArea();
   $("addForm").addEventListener("submit", function (e) {
     e.preventDefault();
     var title = $("newTitle").value.trim();
@@ -589,6 +617,16 @@ details.done-log[open] > summary::before { content: "▾ "; }
   (window.claude && window.claude.use ? window.claude.use("db") : Promise.resolve(null)).then(function (store) {
     if (!store) { clearTimeout(slow); loaded = true; tasks = []; render(); toast("The shared list needs a signed-in view."); return; }
     col = store.collection("tasks");
+    try {
+      areasCol = store.collection("areas");
+      areasCol.onSnapshot(function (snap) {
+        var custom = snap.docs.map(function (d) { return d.data(); }).filter(function (x) { return x && x.id && x.name; })
+          .sort(function (a, b) { return (a.rank || 0) - (b.rank || 0); });
+        AREAS.length = 0; BASE_AREAS.forEach(function (a) { AREAS.push(a); });
+        custom.forEach(function (x) { if (!AREAS.some(function (a) { return a.id === x.id; })) AREAS.push({ id: x.id, name: x.name, short: x.short || x.name }); });
+        fillNewArea(); if (loaded) render();
+      }, function () {});
+    } catch (e) { areasCol = null; }
     col.onSnapshot(function (snap) {
       clearTimeout(slow); loaded = true;
       tasks = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
